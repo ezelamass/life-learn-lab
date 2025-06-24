@@ -14,7 +14,6 @@ interface VideoUploaderProps {
 
 const VideoUploader = ({ onVideoUploaded, onCancel }: VideoUploaderProps) => {
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const { toast } = useToast();
 
@@ -38,7 +37,6 @@ const VideoUploader = ({ onVideoUploaded, onCancel }: VideoUploaderProps) => {
     }
 
     setUploading(true);
-    setUploadProgress(0);
 
     try {
       const fileExt = file.name.split('.').pop();
@@ -47,11 +45,7 @@ const VideoUploader = ({ onVideoUploaded, onCancel }: VideoUploaderProps) => {
 
       const { data, error } = await supabase.storage
         .from('course-videos')
-        .upload(filePath, file, {
-          onUploadProgress: (progress) => {
-            setUploadProgress((progress.loaded / progress.total) * 100);
-          }
-        });
+        .upload(filePath, file);
 
       if (error) throw error;
 
@@ -74,7 +68,6 @@ const VideoUploader = ({ onVideoUploaded, onCancel }: VideoUploaderProps) => {
       });
     } finally {
       setUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -122,13 +115,12 @@ const VideoUploader = ({ onVideoUploaded, onCancel }: VideoUploaderProps) => {
         >
           {uploading ? (
             <div className="space-y-4">
-              <Video className="h-8 w-8 mx-auto text-blue-500" />
+              <Video className="h-8 w-8 mx-auto text-blue-500 animate-pulse" />
               <div>
                 <p className="text-white mb-2">Uploading video...</p>
-                <Progress value={uploadProgress} className="h-2" />
-                <p className="text-sm text-gray-400 mt-1">
-                  {Math.round(uploadProgress)}%
-                </p>
+                <div className="w-full bg-gray-600 rounded-full h-2">
+                  <div className="bg-blue-500 h-2 rounded-full animate-pulse" style={{ width: '50%' }}></div>
+                </div>
               </div>
             </div>
           ) : (
