@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       books: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           id: string
           notes: string | null
@@ -21,6 +22,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -31,6 +33,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -71,6 +74,42 @@ export type Database = {
           title?: string | null
         }
         Relationships: []
+      }
+      course_tags: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          tag_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          tag_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_tags_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       courses: {
         Row: {
@@ -154,6 +193,7 @@ export type Database = {
       }
       lessons: {
         Row: {
+          book_id: string | null
           content_type: string
           content_url: string | null
           course_id: string
@@ -162,8 +202,10 @@ export type Database = {
           notes: string | null
           order_index: number
           title: string
+          video_file_url: string | null
         }
         Insert: {
+          book_id?: string | null
           content_type: string
           content_url?: string | null
           course_id: string
@@ -172,8 +214,10 @@ export type Database = {
           notes?: string | null
           order_index?: number
           title: string
+          video_file_url?: string | null
         }
         Update: {
+          book_id?: string | null
           content_type?: string
           content_url?: string | null
           course_id?: string
@@ -182,8 +226,16 @@ export type Database = {
           notes?: string | null
           order_index?: number
           title?: string
+          video_file_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lessons_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lessons_course_id_fkey"
             columns: ["course_id"]
@@ -192,6 +244,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      monthly_progress: {
+        Row: {
+          courses_completed: number
+          courses_started: number
+          created_at: string
+          id: string
+          lessons_completed: number
+          month: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          courses_completed?: number
+          courses_started?: number
+          created_at?: string
+          id?: string
+          lessons_completed?: number
+          month: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          courses_completed?: number
+          courses_started?: number
+          created_at?: string
+          id?: string
+          lessons_completed?: number
+          month?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
     }
     Views: {

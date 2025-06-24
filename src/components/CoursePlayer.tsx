@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Circle, Play, FileText, Image, Video } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Circle, Play, FileText, Image, Video, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -22,10 +22,13 @@ const CoursePlayer = ({ course, onBack, onUpdate }) => {
 
   const fetchLessons = async () => {
     try {
-      // Get lessons
+      // Get lessons with book information
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('lessons')
-        .select('*')
+        .select(`
+          *,
+          books(title, pdf_url, cover_image_url)
+        `)
         .eq('course_id', course.id)
         .order('order_index', { ascending: true });
 
@@ -130,6 +133,7 @@ const CoursePlayer = ({ course, onBack, onUpdate }) => {
       case 'video': return <Video className="h-4 w-4" />;
       case 'image': return <Image className="h-4 w-4" />;
       case 'note': return <FileText className="h-4 w-4" />;
+      case 'book': return <BookOpen className="h-4 w-4" />;
       default: return <FileText className="h-4 w-4" />;
     }
   };
@@ -213,6 +217,11 @@ const CoursePlayer = ({ course, onBack, onUpdate }) => {
                         <p className="text-sm font-medium text-white truncate">
                           {lesson.title}
                         </p>
+                        {lesson.content_type === 'book' && lesson.books && (
+                          <p className="text-xs text-gray-500 truncate">
+                            {lesson.books.title}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -231,24 +240,43 @@ const CoursePlayer = ({ course, onBack, onUpdate }) => {
                   <div className="flex items-center space-x-2 text-gray-400">
                     {getLessonIcon(currentLesson.content_type)}
                     <span className="text-sm capitalize">{currentLesson.content_type}</span>
+                    {currentLesson.content_type === 'book' && currentLesson.books && (
+                      <span className="text-sm">• {currentLesson.books.title}</span>
+                    )}
                   </div>
                 </div>
 
                 {/* Lesson Content */}
                 <Card className="bg-gray-800 border-gray-700">
                   <CardContent className="p-6">
-                    {currentLesson.content_type === 'video' && currentLesson.content_url && (
+                    {/* Video Content */}
+                    {currentLesson.content_type === 'video' && (
                       <div className="mb-6">
-                        <ReactPlayer
-                          url={currentLesson.content_url}
-                          controls
-                          width="100%"
-                          height="400px"
-                          className="rounded-lg overflow-hidden"
-                        />
+                        {currentLesson.video_file_url ? (
+                          <ReactPlayer
+                            url={currentLesson.video_file_url}
+                            controls
+                            width="100%"
+                            height="400px"
+                            className="rounded-lg overflow-hidden"
+                          />
+                        ) : currentLesson.content_url ? (
+                          <ReactPlayer
+                            url={currentLesson.content_url}
+                            controls
+                            width="100%"
+                            height="400px"
+                            className="rounded-lg overflow-hidden"
+                          />
+                        ) : (
+                          <div className="h-64 bg-gray-700 rounded-lg flex items-center justify-center">
+                            <p className="text-gray-400">No video content available</p>
+                          </div>
+                        )}
                       </div>
                     )}
 
+                    {/* Image Content */}
                     {currentLesson.content_type === 'image' && currentLesson.content_url && (
                       <div className="mb-6">
                         <img
@@ -259,6 +287,40 @@ const CoursePlayer = ({ course, onBack, onUpdate }) => {
                       </div>
                     )}
 
+                    {/* Book Content */}
+                    {currentLesson.content_type === 'book' && currentLesson.books && (
+                      <div className="mb-6">
+                        <div className="bg-gray-700 rounded-lg p-6">
+                          <div className="flex items-center space-x-4 mb-4">
+                            <BookOpen className="h-8 w-8 text-blue-400" />
+                            <div>
+                              <h3 className="text-lg font-semibold text-white">
+                                {currentLesson.books.title}
+                              </h3>
+                              <p className="text-gray-400">Integrated Book Content</p>
+                            </div>
+                          </div>
+                          {currentLesson.books.cover_image_url && (
+                            <img
+                              src={currentLesson.books.cover_image_url}
+                              alt={`${currentLesson.books.title} cover`}
+                              className="w-32 h-auto rounded-lg mb-4"
+                            />
+                          )}
+                          {currentLesson.books.pdf_url && (
+                            <Button
+                              onClick={() => window.open(currentLesson.books.pdf_url, '_blank')}
+                              className="mb-4"
+                            >
+                              <BookOpen className="h-4 w-4 mr-2" />
+                              Open Book PDF
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lesson Notes */}
                     {currentLesson.notes && (
                       <div className="prose prose-invert max-w-none">
                         <div className="whitespace-pre-wrap text-gray-300">

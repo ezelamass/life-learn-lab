@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Calendar, BookOpen, Play, TrendingUp, Target } from 'lucide-react';
+import { Calendar, BookOpen, Play, TrendingUp, Target, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 const Dashboard = ({ courses, books }) => {
   const [streak, setStreak] = useState(0);
   const [todayProgress, setTodayProgress] = useState(0);
+  const [monthProgress, setMonthProgress] = useState(0);
+  const [fourMonthProgress, setFourMonthProgress] = useState(0);
   const [courseProgress, setCourseProgress] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
 
@@ -82,8 +84,42 @@ const Dashboard = ({ courses, books }) => {
 
       setTodayProgress(todayData?.lessons_completed || 0);
 
+      // Get monthly progress
+      await fetchMonthlyProgress();
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  const fetchMonthlyProgress = async () => {
+    try {
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      // Last month progress
+      const { data: lastMonthData } = await supabase
+        .from('daily_streaks')
+        .select('lessons_completed')
+        .gte('date', new Date(currentYear, currentMonth - 2, 1).toISOString().split('T')[0])
+        .lt('date', new Date(currentYear, currentMonth - 1, 1).toISOString().split('T')[0]);
+
+      const lastMonthTotal = lastMonthData?.reduce((sum, day) => sum + day.lessons_completed, 0) || 0;
+      setMonthProgress(lastMonthTotal);
+
+      // Last 4 months progress
+      const { data: fourMonthData } = await supabase
+        .from('daily_streaks')
+        .select('lessons_completed')
+        .gte('date', new Date(currentYear, currentMonth - 5, 1).toISOString().split('T')[0])
+        .lt('date', new Date(currentYear, currentMonth - 1, 1).toISOString().split('T')[0]);
+
+      const fourMonthTotal = fourMonthData?.reduce((sum, day) => sum + day.lessons_completed, 0) || 0;
+      setFourMonthProgress(fourMonthTotal);
+
+    } catch (error) {
+      console.error('Error fetching monthly progress:', error);
     }
   };
 
@@ -123,7 +159,7 @@ const Dashboard = ({ courses, books }) => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-300">Current Streak</CardTitle>
@@ -146,6 +182,32 @@ const Dashboard = ({ courses, books }) => {
             <div className="text-2xl font-bold text-white">{todayProgress}</div>
             <p className="text-xs text-gray-400">
               lessons completed today
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-300">Last Month</CardTitle>
+            <Calendar className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{monthProgress}</div>
+            <p className="text-xs text-gray-400">
+              lessons completed
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-300">Last 4 Months</CardTitle>
+            <TrendingUp className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{fourMonthProgress}</div>
+            <p className="text-xs text-gray-400">
+              lessons completed
             </p>
           </CardContent>
         </Card>

@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, BookOpen, Play, Filter } from 'lucide-react';
+import { Plus, Search, Calendar, BookOpen, Play, Edit, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import Dashboard from '@/components/Dashboard';
 import CourseCreator from '@/components/CourseCreator';
@@ -18,17 +19,20 @@ const Index = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedBook, setSelectedBook] = useState(null);
+  const [editingCourse, setEditingCourse] = useState(null);
   const [courses, setCourses] = useState([]);
   const [books, setBooks] = useState([]);
   const [filteredContent, setFilteredContent] = useState([]);
   const [selectedFilters, setSelectedFilters] = useState({
     type: 'all',
-    topic: 'all'
+    tags: []
   });
+  const [tags, setTags] = useState([]);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchContent();
+    fetchTags();
     
     // Global shortcut for new course
     const handleKeyDown = (e) => {
@@ -68,20 +72,58 @@ const Index = () => {
     }
   };
 
-  const filterContent = () => {
+  const fetchTags = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setTags(data || []);
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  };
+
+  const filterContent = async () => {
     let allContent = [];
     
     if (selectedFilters.type === 'all' || selectedFilters.type === 'course') {
-      allContent = [...allContent, ...courses.map(c => ({ ...c, type: 'course' }))];
+      // Get courses with their tags
+      const coursesWithTags = await Promise.all(
+        courses.map(async (course) => {
+          const { data: courseTags } = await supabase
+            .from('course_tags')
+            .select(`
+              tag_id,
+              tags!inner(name, color)
+            `)
+            .eq('course_id', course.id);
+
+          return {
+            ...course,
+            type: 'course',
+            tags: courseTags || []
+          };
+        })
+      );
+      
+      allContent = [...allContent, ...coursesWithTags];
     }
     
     if (selectedFilters.type === 'all' || selectedFilters.type === 'book') {
-      allContent = [...allContent, ...books.map(b => ({ ...b, type: 'book' }))];
+      allContent = [...allContent, ...books.map(b => ({ ...b, type: 'book', tags: [] }))];
     }
 
-    // Filter by topic
-    if (selectedFilters.topic !== 'all') {
-      allContent = allContent.filter(item => item.topic === selectedFilters.topic);
+    // Filter by tags
+    if (selectedFilters.tags.length > 0) {
+      allContent = allContent.filter(item => {
+        if (item.type === 'book') return false; // Books don't have tags yet
+        return selectedFilters.tags.some(tagId => 
+          item.tags.some(tag => tag.tag_id === tagId)
+        );
+      });
     }
 
     // Filter by search term
@@ -95,12 +137,9 @@ const Index = () => {
     setFilteredContent(allContent);
   };
 
-  const getAllTopics = () => {
-    const topics = new Set();
-    [...courses, ...books].forEach(item => {
-      if (item.topic) topics.add(item.topic);
-    });
-    return Array.from(topics);
+  const handleEditCourse = (course) => {
+    setEditingCourse(course);
+    setCurrentView('edit-course');
   };
 
   if (selectedCourse) {
@@ -125,13 +164,28 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Enhanced Header */}
+      <header className="border-b border-gray-800 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 backdrop-blur-sm relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-blue-600/5"></div>
+        <div className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-transparent via-blue-500/20 to-transparent"></div>
+        <div className="absolute top-0 right-1/4 w-px h-full bg-gradient-to-b from-transparent via-purple-500/20 to-transparent"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <img src="/placeholder.svg" alt="University for Real Life" className="h-8 w-8" />
-              <h1 className="text-xl font-bold">University for Real Life</h1>
+              <div className="relative">
+                <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 h-3 w-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                  University for Real Life
+                </h1>
+                <div className="h-px w-16 bg-gradient-to-r from-blue-500 to-purple-500 mt-1"></div>
+              </div>
             </div>
             
             <nav className="flex items-center space-x-2">
@@ -139,6 +193,7 @@ const Index = () => {
                 variant={currentView === 'dashboard' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setCurrentView('dashboard')}
+                className="bg-black text-white hover:bg-gray-800"
               >
                 Dashboard
               </Button>
@@ -146,6 +201,7 @@ const Index = () => {
                 variant={currentView === 'library' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setCurrentView('library')}
+                className="bg-black text-white hover:bg-gray-800"
               >
                 <BookOpen className="h-4 w-4 mr-2" />
                 Library
@@ -154,6 +210,7 @@ const Index = () => {
                 variant={currentView === 'calendar' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setCurrentView('calendar')}
+                className="bg-black text-white hover:bg-gray-800"
               >
                 <Calendar className="h-4 w-4 mr-2" />
                 Calendar
@@ -162,6 +219,7 @@ const Index = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentView('create-course')}
+                className="bg-black text-white hover:bg-gray-800 border-gray-600"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Course
@@ -170,6 +228,7 @@ const Index = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentView('upload-book')}
+                className="bg-black text-white hover:bg-gray-800 border-gray-600"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Book
@@ -189,7 +248,6 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1">
               <LibraryFilters
-                topics={getAllTopics()}
                 selectedFilters={selectedFilters}
                 onFiltersChange={setSelectedFilters}
               />
@@ -212,7 +270,7 @@ const Index = () => {
                 {filteredContent.map((item) => (
                   <div
                     key={`${item.type}-${item.id}`}
-                    className="bg-gray-800 rounded-lg p-6 cursor-pointer hover:bg-gray-700 transition-colors"
+                    className="bg-gray-800 rounded-lg p-6 cursor-pointer hover:bg-gray-700 transition-colors relative group"
                     onClick={() => {
                       if (item.type === 'course') {
                         setSelectedCourse(item);
@@ -221,6 +279,20 @@ const Index = () => {
                       }
                     }}
                   >
+                    {item.type === 'course' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditCourse(item);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-blue-400 capitalize">
                         {item.type}
@@ -231,10 +303,32 @@ const Index = () => {
                         <BookOpen className="h-4 w-4 text-gray-400" />
                       )}
                     </div>
+                    
                     <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                    
                     {item.topic && (
                       <p className="text-sm text-gray-400 mb-2">{item.topic}</p>
                     )}
+                    
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {item.tags.slice(0, 3).map((tag) => (
+                          <Badge
+                            key={tag.tag_id}
+                            style={{ backgroundColor: tag.tags.color }}
+                            className="text-xs text-white"
+                          >
+                            {tag.tags.name}
+                          </Badge>
+                        ))}
+                        {item.tags.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{item.tags.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    
                     {item.description && (
                       <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
                     )}
@@ -267,17 +361,22 @@ const Index = () => {
           <CalendarView />
         )}
 
-        {currentView === 'create-course' && (
+        {(currentView === 'create-course' || currentView === 'edit-course') && (
           <CourseCreator
+            editingCourse={editingCourse}
             onSuccess={() => {
               setCurrentView('library');
+              setEditingCourse(null);
               fetchContent();
               toast({
                 title: "Success",
-                description: "Course created successfully!"
+                description: editingCourse ? "Course updated successfully!" : "Course created successfully!"
               });
             }}
-            onCancel={() => setCurrentView('library')}
+            onCancel={() => {
+              setCurrentView('library');
+              setEditingCourse(null);
+            }}
           />
         )}
 
