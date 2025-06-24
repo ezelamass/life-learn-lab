@@ -6,7 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const NotesEditor = ({ lessonId, bookId, initialNotes = '', onSave, placeholder = "Add your notes..." }) => {
+interface NotesEditorProps {
+  lessonId?: string;
+  bookId?: string;
+  initialNotes?: string;
+  onSave?: (notes: string) => void;
+  placeholder?: string;
+}
+
+const NotesEditor = ({ lessonId, bookId, initialNotes = '', onSave, placeholder = "Add your notes..." }: NotesEditorProps) => {
   const [notes, setNotes] = useState(initialNotes);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

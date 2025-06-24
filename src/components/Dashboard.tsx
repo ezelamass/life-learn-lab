@@ -98,7 +98,7 @@ const Dashboard = ({ courses, books }) => {
     
     for (let i = 0; i < streakData.length; i++) {
       const streakDate = new Date(streakData[i].date);
-      const daysDiff = Math.floor((today - streakDate) / (1000 * 60 * 60 * 24));
+      const daysDiff = Math.floor((today.getTime() - streakDate.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysDiff === i && streakData[i].lessons_completed > 0) {
         currentStreak++;
