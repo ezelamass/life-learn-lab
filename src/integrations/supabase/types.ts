@@ -9,7 +9,190 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      books: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          pdf_url: string | null
+          summary: string | null
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pdf_url?: string | null
+          summary?: string | null
+          title: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pdf_url?: string | null
+          summary?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_blocks: {
+        Row: {
+          created_at: string
+          date: string
+          description: string | null
+          end_time: string
+          id: string
+          start_time: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          description?: string | null
+          end_time: string
+          id?: string
+          start_time: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string | null
+          end_time?: string
+          id?: string
+          start_time?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      courses: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          title: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      daily_streaks: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          lessons_completed: number
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          lessons_completed?: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          lessons_completed?: number
+        }
+        Relationships: []
+      }
+      lesson_progress: {
+        Row: {
+          completed_at: string
+          id: string
+          lesson_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          lesson_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          lesson_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lessons: {
+        Row: {
+          content_type: string
+          content_url: string | null
+          course_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          order_index: number
+          title: string
+        }
+        Insert: {
+          content_type: string
+          content_url?: string | null
+          course_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          title: string
+        }
+        Update: {
+          content_type?: string
+          content_url?: string | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
