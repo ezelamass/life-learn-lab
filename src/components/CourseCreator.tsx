@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, X, Link, FileText, Image, Video, Upload, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import TagManager from '@/components/TagManager';
 import VideoUploader from '@/components/VideoUploader';
+import ImageUploader from '@/components/ImageUploader';
+import PDFUploader from '@/components/PDFUploader';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,6 +31,8 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse }: CourseCreatorProp
   const [books, setBooks] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState<number | null>(null);
+  const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+  const [uploadingPDF, setUploadingPDF] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -120,6 +123,16 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse }: CourseCreatorProp
   const handleVideoUpload = (lessonId: number, videoUrl: string) => {
     updateLesson(lessonId, 'video_file_url', videoUrl);
     setUploadingVideo(null);
+  };
+
+  const handleImageUpload = (lessonId: number, imageUrl: string) => {
+    updateLesson(lessonId, 'content_url', imageUrl);
+    setUploadingImage(null);
+  };
+
+  const handlePDFUpload = (lessonId: number, pdfUrl: string) => {
+    updateLesson(lessonId, 'content_url', pdfUrl);
+    setUploadingPDF(null);
   };
 
   const handleSubmit = async (e) => {
@@ -416,12 +429,60 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse }: CourseCreatorProp
                       )}
                       
                       {lesson.content_type === 'image' && (
-                        <Input
-                          value={lesson.content_url}
-                          onChange={(e) => updateLesson(lesson.id, 'content_url', e.target.value)}
-                          placeholder="Image URL"
-                          className="bg-gray-600 border-gray-500 text-white"
-                        />
+                        <div className="space-y-2">
+                          <Input
+                            value={lesson.content_url}
+                            onChange={(e) => updateLesson(lesson.id, 'content_url', e.target.value)}
+                            placeholder="Image URL (optional)"
+                            className="bg-gray-600 border-gray-500 text-white"
+                          />
+                          <div className="text-center text-gray-400">or</div>
+                          {uploadingImage === lesson.id ? (
+                            <ImageUploader
+                              onImageUploaded={(url) => handleImageUpload(lesson.id, url)}
+                              onCancel={() => setUploadingImage(null)}
+                            />
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setUploadingImage(lesson.id)}
+                              className="w-full"
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Image File
+                            </Button>
+                          )}
+                          {lesson.content_url && lesson.content_url.includes('images/') && (
+                            <p className="text-sm text-green-400">✓ Image file uploaded</p>
+                          )}
+                        </div>
+                      )}
+
+                      {lesson.content_type === 'note' && (
+                        <div className="space-y-2">
+                          {uploadingPDF === lesson.id ? (
+                            <PDFUploader
+                              onPDFUploaded={(url) => handlePDFUpload(lesson.id, url)}
+                              onCancel={() => setUploadingPDF(null)}
+                            />
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setUploadingPDF(lesson.id)}
+                              className="w-full"
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload PDF File
+                            </Button>
+                          )}
+                          {lesson.content_url && lesson.content_url.includes('pdfs/') && (
+                            <p className="text-sm text-green-400">✓ PDF file uploaded</p>
+                          )}
+                        </div>
                       )}
 
                       {lesson.content_type === 'book' && books.length > 0 && (

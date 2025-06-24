@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, BookOpen, Play, TrendingUp, Target, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,28 +94,38 @@ const Dashboard = ({ courses, books }) => {
   const fetchMonthlyProgress = async () => {
     try {
       const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
+      
+      // Calculate date ranges properly
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      
+      const fourMonthsAgoStart = new Date(now.getFullYear(), now.getMonth() - 4, 1);
+      const lastMonthEndFor4Months = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      console.log('Fetching last month progress from:', lastMonthStart.toISOString().split('T')[0], 'to:', lastMonthEnd.toISOString().split('T')[0]);
+      console.log('Fetching 4 months progress from:', fourMonthsAgoStart.toISOString().split('T')[0], 'to:', lastMonthEndFor4Months.toISOString().split('T')[0]);
 
       // Last month progress
       const { data: lastMonthData } = await supabase
         .from('daily_streaks')
         .select('lessons_completed')
-        .gte('date', new Date(currentYear, currentMonth - 2, 1).toISOString().split('T')[0])
-        .lt('date', new Date(currentYear, currentMonth - 1, 1).toISOString().split('T')[0]);
+        .gte('date', lastMonthStart.toISOString().split('T')[0])
+        .lte('date', lastMonthEnd.toISOString().split('T')[0]);
 
       const lastMonthTotal = lastMonthData?.reduce((sum, day) => sum + day.lessons_completed, 0) || 0;
       setMonthProgress(lastMonthTotal);
+      console.log('Last month total lessons:', lastMonthTotal);
 
       // Last 4 months progress
       const { data: fourMonthData } = await supabase
         .from('daily_streaks')
         .select('lessons_completed')
-        .gte('date', new Date(currentYear, currentMonth - 5, 1).toISOString().split('T')[0])
-        .lt('date', new Date(currentYear, currentMonth - 1, 1).toISOString().split('T')[0]);
+        .gte('date', fourMonthsAgoStart.toISOString().split('T')[0])
+        .lte('date', lastMonthEndFor4Months.toISOString().split('T')[0]);
 
       const fourMonthTotal = fourMonthData?.reduce((sum, day) => sum + day.lessons_completed, 0) || 0;
       setFourMonthProgress(fourMonthTotal);
+      console.log('Last 4 months total lessons:', fourMonthTotal);
 
     } catch (error) {
       console.error('Error fetching monthly progress:', error);

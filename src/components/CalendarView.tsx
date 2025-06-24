@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, Plus, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,7 +22,23 @@ const CalendarView = () => {
     start_time: '',
     end_time: ''
   });
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringOptions, setRecurringOptions] = useState({
+    frequency: 'daily', // daily, business, custom
+    weeks: 1,
+    selectedDays: [] // For custom frequency: ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+  });
   const { toast } = useToast();
+
+  const dayAbbreviations = [
+    { key: 'L', name: 'Monday', value: 1 },
+    { key: 'M', name: 'Tuesday', value: 2 },
+    { key: 'X', name: 'Wednesday', value: 3 },
+    { key: 'J', name: 'Thursday', value: 4 },
+    { key: 'V', name: 'Friday', value: 5 },
+    { key: 'S', name: 'Saturday', value: 6 },
+    { key: 'D', name: 'Sunday', value: 0 }
+  ];
 
   useEffect(() => {
     fetchCalendarData();
@@ -70,6 +87,116 @@ const CalendarView = () => {
     }
   };
 
+  const generateRecurringDates = (startDate, frequency, weeks, selectedDays) => {
+    const dates = [];
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + (weeks * 7));
+
+    let currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      if (frequency === 'daily') {
+        dates.push(new Date(currentDate));
+      } else if (frequency === 'business') {
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+          dates.push(new Date(currentDate));
+        }
+      } else if (frequency === 'custom') {
+        const dayOfWeek = currentDate.getDay();
+        const dayAbbr = dayAbbreviations.find(d => d.value === dayOfWeek)?.key;
+        if (selectedDays.includes(dayAbbr)) {
+          dates.push(new Date(currentDate));
+        }
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return dates;
+  };
+
+  const handleAddBlock = async () => {
+    if (!selectedDate || !newBlock.title || !newBlock.start_time || !newBlock.end_time) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isRecurring && recurringOptions.frequency === 'custom' && recurringOptions.selectedDays.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one day for custom recurring",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      let datesToInsert = [selectedDate];
+
+      if (isRecurring) {
+        datesToInsert = generateRecurringDates(
+          selectedDate,
+          recurringOptions.frequency,
+          recurringOptions.weeks,
+          recurringOptions.selectedDays
+        );
+      }
+
+      const blocksToInsert = datesToInsert.map(date => ({
+        ...newBlock,
+        date: date.toISOString().split('T')[0]
+      }));
+
+      const { error } = await supabase
+        .from('calendar_blocks')
+        .insert(blocksToInsert);
+
+      if (error) throw error;
+
+      setNewBlock({
+        title: '',
+        description: '',
+        start_time: '',
+        end_time: ''
+      });
+      setIsRecurring(false);
+      setRecurringOptions({
+        frequency: 'daily',
+        weeks: 1,
+        selectedDays: []
+      });
+      setIsDialogOpen(false);
+      setSelectedDate(null);
+      fetchCalendarData();
+
+      toast({
+        title: "Success",
+        description: `${isRecurring ? 'Recurring study blocks' : 'Study block'} added successfully!`,
+      });
+
+    } catch (error) {
+      console.error('Error adding calendar block:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add study block",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const toggleDaySelection = (dayKey) => {
+    setRecurringOptions(prev => ({
+      ...prev,
+      selectedDays: prev.selectedDays.includes(dayKey)
+        ? prev.selectedDays.filter(d => d !== dayKey)
+        : [...prev.selectedDays, dayKey]
+    }));
+  };
+
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -108,51 +235,6 @@ const CalendarView = () => {
     });
   };
 
-  const handleAddBlock = async () => {
-    if (!selectedDate || !newBlock.title || !newBlock.start_time || !newBlock.end_time) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('calendar_blocks')
-        .insert([{
-          ...newBlock,
-          date: selectedDate.toISOString().split('T')[0]
-        }]);
-
-      if (error) throw error;
-
-      setNewBlock({
-        title: '',
-        description: '',
-        start_time: '',
-        end_time: ''
-      });
-      setIsDialogOpen(false);
-      setSelectedDate(null);
-      fetchCalendarData();
-
-      toast({
-        title: "Success",
-        description: "Study block added successfully!",
-      });
-
-    } catch (error) {
-      console.error('Error adding calendar block:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add study block",
-        variant: "destructive"
-      });
-    }
-  };
-
   const navigateMonth = (direction) => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + direction, 1));
   };
@@ -175,7 +257,7 @@ const CalendarView = () => {
               Add Study Block
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-gray-800 border-gray-700">
+          <DialogContent className="bg-gray-800 border-gray-700 max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white">Add Study Block</DialogTitle>
             </DialogHeader>
@@ -231,6 +313,72 @@ const CalendarView = () => {
                   Date: {selectedDate.toLocaleDateString()}
                 </p>
               )}
+
+              {/* Recurring Options */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="recurring"
+                    checked={isRecurring}
+                    onCheckedChange={setIsRecurring}
+                  />
+                  <Label htmlFor="recurring" className="text-gray-300">Make this recurring</Label>
+                </div>
+
+                {isRecurring && (
+                  <div className="space-y-3 pl-6 border-l-2 border-gray-600">
+                    <div>
+                      <Label className="text-gray-300">Frequency</Label>
+                      <Select
+                        value={recurringOptions.frequency}
+                        onValueChange={(value) => setRecurringOptions({...recurringOptions, frequency: value})}
+                      >
+                        <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="business">Business Days (Mon-Fri)</SelectItem>
+                          <SelectItem value="custom">Custom Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {recurringOptions.frequency === 'custom' && (
+                      <div>
+                        <Label className="text-gray-300 mb-2 block">Select Days</Label>
+                        <div className="flex space-x-2">
+                          {dayAbbreviations.map(day => (
+                            <Button
+                              key={day.key}
+                              type="button"
+                              variant={recurringOptions.selectedDays.includes(day.key) ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => toggleDaySelection(day.key)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {day.key}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label htmlFor="weeks" className="text-gray-300">Number of weeks</Label>
+                      <Input
+                        id="weeks"
+                        type="number"
+                        min="1"
+                        max="52"
+                        value={recurringOptions.weeks}
+                        onChange={(e) => setRecurringOptions({...recurringOptions, weeks: parseInt(e.target.value) || 1})}
+                        className="bg-gray-700 border-gray-600 text-white mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>

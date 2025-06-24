@@ -1,398 +1,423 @@
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, BookOpen, Play, Edit, Sparkles } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { Plus, BookOpen, GraduationCap, Calendar as CalendarIcon, BarChart3 } from 'lucide-react';
 import Dashboard from '@/components/Dashboard';
 import CourseCreator from '@/components/CourseCreator';
-import BookUploader from '@/components/BookUploader';
 import CoursePlayer from '@/components/CoursePlayer';
+import BookUploader from '@/components/BookUploader';
 import BookViewer from '@/components/BookViewer';
 import CalendarView from '@/components/CalendarView';
 import LibraryFilters from '@/components/LibraryFilters';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [courses, setCourses] = useState([]);
+  const [books, setBooks] = useState([]);
+  const [showCourseCreator, setShowCourseCreator] = useState(false);
+  const [showBookUploader, setShowBookUploader] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedBook, setSelectedBook] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
-  const [courses, setCourses] = useState([]);
-  const [books, setBooks] = useState([]);
-  const [filteredContent, setFilteredContent] = useState([]);
-  const [selectedFilters, setSelectedFilters] = useState({
-    type: 'all',
-    tags: []
-  });
-  const [tags, setTags] = useState([]);
+  const [filteredCourses, setFilteredCourses] = useState([]);
+  const [filteredBooks, setFilteredBooks] = useState([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchContent();
-    fetchTags();
-    
-    // Global shortcut for new course
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'N') {
-        e.preventDefault();
-        setCurrentView('create-course');
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    fetchCourses();
+    fetchBooks();
   }, []);
 
   useEffect(() => {
-    filterContent();
-  }, [courses, books, searchTerm, selectedFilters]);
+    setFilteredCourses(courses);
+  }, [courses]);
 
-  const fetchContent = async () => {
+  useEffect(() => {
+    setFilteredBooks(books);
+  }, [books]);
+
+  const fetchCourses = async () => {
     try {
-      const [coursesRes, booksRes] = await Promise.all([
-        supabase.from('courses').select('*').order('created_at', { ascending: false }),
-        supabase.from('books').select('*').order('created_at', { ascending: false })
-      ]);
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          course_tags (
+            tags (
+              id,
+              name,
+              color
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-      if (coursesRes.error) throw coursesRes.error;
-      if (booksRes.error) throw booksRes.error;
-
-      setCourses(coursesRes.data || []);
-      setBooks(booksRes.data || []);
+      if (error) throw error;
+      setCourses(data || []);
     } catch (error) {
-      console.error('Error fetching content:', error);
+      console.error('Error fetching courses:', error);
       toast({
         title: "Error",
-        description: "Failed to load content",
+        description: "Failed to load courses",
         variant: "destructive"
       });
     }
   };
 
-  const fetchTags = async () => {
+  const fetchBooks = async () => {
     try {
       const { data, error } = await supabase
-        .from('tags')
+        .from('books')
         .select('*')
-        .order('name');
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTags(data || []);
+      setBooks(data || []);
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      console.error('Error fetching books:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load books",
+        variant: "destructive"
+      });
     }
   };
 
-  const filterContent = async () => {
-    let allContent = [];
-    
-    if (selectedFilters.type === 'all' || selectedFilters.type === 'course') {
-      // Get courses with their tags
-      const coursesWithTags = await Promise.all(
-        courses.map(async (course) => {
-          const { data: courseTags } = await supabase
-            .from('course_tags')
-            .select(`
-              tag_id,
-              tags!inner(name, color)
-            `)
-            .eq('course_id', course.id);
+  const handleCourseCreated = () => {
+    setShowCourseCreator(false);
+    setEditingCourse(null);
+    fetchCourses();
+    toast({
+      title: "Success",
+      description: editingCourse ? "Course updated successfully!" : "Course created successfully!",
+    });
+  };
 
-          return {
-            ...course,
-            type: 'course',
-            tags: courseTags || []
-          };
-        })
-      );
-      
-      allContent = [...allContent, ...coursesWithTags];
-    }
-    
-    if (selectedFilters.type === 'all' || selectedFilters.type === 'book') {
-      allContent = [...allContent, ...books.map(b => ({ ...b, type: 'book', tags: [] }))];
-    }
-
-    // Filter by tags
-    if (selectedFilters.tags.length > 0) {
-      allContent = allContent.filter(item => {
-        if (item.type === 'book') return false; // Books don't have tags yet
-        return selectedFilters.tags.some(tagId => 
-          item.tags.some(tag => tag.tag_id === tagId)
-        );
-      });
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      allContent = allContent.filter(item => 
-        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.topic?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredContent(allContent);
+  const handleBookUploaded = () => {
+    setShowBookUploader(false);
+    fetchBooks();
+    toast({
+      title: "Success",
+      description: "Book uploaded successfully!",
+    });
   };
 
   const handleEditCourse = (course) => {
     setEditingCourse(course);
-    setCurrentView('edit-course');
+    setShowCourseCreator(true);
+  };
+
+  const handleDeleteCourse = async (courseId) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .delete()
+        .eq('id', courseId);
+
+      if (error) throw error;
+
+      fetchCourses();
+      toast({
+        title: "Success",
+        description: "Course deleted successfully!",
+      });
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete course",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteBook = async (bookId) => {
+    try {
+      const { error } = await supabase
+        .from('books')
+        .delete()
+        .eq('id', bookId);
+
+      if (error) throw error;
+
+      fetchBooks();
+      toast({
+        title: "Success",
+        description: "Book deleted successfully!",
+      });
+    } catch (error) {
+      console.error('Error deleting book:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete book",
+        variant: "destructive"
+      });
+    }
   };
 
   if (selectedCourse) {
+    return <CoursePlayer course={selectedCourse} onBack={() => setSelectedCourse(null)} />;
+  }
+
+  if (selectedBook) {
+    return <BookViewer book={selectedBook} onBack={() => setSelectedBook(null)} />;
+  }
+
+  if (showCourseCreator) {
     return (
-      <CoursePlayer 
-        course={selectedCourse} 
-        onBack={() => setSelectedCourse(null)}
-        onUpdate={fetchContent}
+      <CourseCreator
+        onSuccess={handleCourseCreated}
+        onCancel={() => {
+          setShowCourseCreator(false);
+          setEditingCourse(null);
+        }}
+        editingCourse={editingCourse}
       />
     );
   }
 
-  if (selectedBook) {
+  if (showBookUploader) {
     return (
-      <BookViewer 
-        book={selectedBook} 
-        onBack={() => setSelectedBook(null)}
-        onUpdate={fetchContent}
+      <BookUploader
+        onSuccess={handleBookUploaded}
+        onCancel={() => setShowBookUploader(false)}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Enhanced Header */}
-      <header className="border-b border-gray-800 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 backdrop-blur-sm relative overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-blue-600/5"></div>
-        <div className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-transparent via-blue-500/20 to-transparent"></div>
-        <div className="absolute top-0 right-1/4 w-px h-full bg-gradient-to-b from-transparent via-purple-500/20 to-transparent"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex items-center justify-between h-16">
+    <div className="min-h-screen bg-gray-900">
+      {/* Header with blue gradient background */}
+      <header className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 border-b border-gray-700 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="h-5 w-5 text-white" />
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
+                  <GraduationCap className="h-6 w-6 text-blue-600" />
                 </div>
-                <div className="absolute -top-1 -right-1 h-3 w-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white"></div>
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  University for Real Life
-                </h1>
-                <div className="h-px w-16 bg-gradient-to-r from-blue-500 to-purple-500 mt-1"></div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">My Own University</h1>
+                <p className="text-blue-100 text-sm">Learn at your own pace</p>
               </div>
             </div>
             
-            <nav className="flex items-center space-x-2">
-              <Button
-                variant={currentView === 'dashboard' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setCurrentView('dashboard')}
-                className="bg-black text-white hover:bg-gray-800"
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => setShowCourseCreator(true)}
+                className="bg-white text-blue-600 hover:bg-blue-50 font-medium shadow-md transition-all duration-200 hover:shadow-lg"
               >
-                Dashboard
+                <Plus className="h-4 w-4 mr-2" />
+                New Course
               </Button>
-              <Button
-                variant={currentView === 'library' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setCurrentView('library')}
-                className="bg-black text-white hover:bg-gray-800"
+              <Button 
+                onClick={() => setShowBookUploader(true)}
+                variant="outline"
+                className="border-white text-white hover:bg-white hover:text-blue-600 transition-all duration-200"
               >
                 <BookOpen className="h-4 w-4 mr-2" />
-                Library
+                Upload Book
               </Button>
-              <Button
-                variant={currentView === 'calendar' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setCurrentView('calendar')}
-                className="bg-black text-white hover:bg-gray-800"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Calendar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentView('create-course')}
-                className="bg-black text-white hover:bg-gray-800 border-gray-600"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Course
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentView('upload-book')}
-                className="bg-black text-white hover:bg-gray-800 border-gray-600"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Book
-              </Button>
-            </nav>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {currentView === 'dashboard' && (
-          <Dashboard courses={courses} books={books} />
-        )}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className="grid w-full grid-cols-4 bg-gray-800 border-gray-700">
+            <TabsTrigger value="dashboard" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="courses" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300">
+              <GraduationCap className="h-4 w-4 mr-2" />
+              Courses
+            </TabsTrigger>
+            <TabsTrigger value="library" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Library
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300">
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Calendar
+            </TabsTrigger>
+          </TabsList>
 
-        {currentView === 'library' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div className="lg:col-span-1">
+          <TabsContent value="dashboard">
+            <Dashboard courses={courses} books={books} />
+          </TabsContent>
+
+          <TabsContent value="courses">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-white">My Courses</h2>
+              </div>
+
               <LibraryFilters
-                selectedFilters={selectedFilters}
-                onFiltersChange={setSelectedFilters}
+                courses={courses}
+                books={books}
+                onCoursesFiltered={setFilteredCourses}
+                onBooksFiltered={setFilteredBooks}
+                activeFilter="courses"
               />
-            </div>
-            
-            <div className="lg:col-span-3">
-              <div className="mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search courses and books..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-gray-800 border-gray-700 text-white"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredContent.map((item) => (
-                  <div
-                    key={`${item.type}-${item.id}`}
-                    className="bg-gray-800 rounded-lg p-6 cursor-pointer hover:bg-gray-700 transition-colors relative group"
-                    onClick={() => {
-                      if (item.type === 'course') {
-                        setSelectedCourse(item);
-                      } else {
-                        setSelectedBook(item);
-                      }
-                    }}
-                  >
-                    {item.type === 'course' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditCourse(item);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-blue-400 capitalize">
-                        {item.type}
-                      </span>
-                      {item.type === 'course' ? (
-                        <Play className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <BookOpen className="h-4 w-4 text-gray-400" />
-                      )}
-                    </div>
-                    
-                    <h3 className="font-semibold text-white mb-2">{item.title}</h3>
-                    
-                    {item.topic && (
-                      <p className="text-sm text-gray-400 mb-2">{item.topic}</p>
-                    )}
-                    
-                    {item.tags && item.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {item.tags.slice(0, 3).map((tag) => (
-                          <Badge
-                            key={tag.tag_id}
-                            style={{ backgroundColor: tag.tags.color }}
-                            className="text-xs text-white"
-                          >
-                            {tag.tags.name}
-                          </Badge>
-                        ))}
-                        {item.tags.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{item.tags.length - 3}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    
-                    {item.description && (
-                      <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {filteredContent.length === 0 && (
+              {filteredCourses.length === 0 ? (
                 <div className="text-center py-12">
-                  <BookOpen className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-400 mb-2">No content found</h3>
-                  <p className="text-gray-500 mb-4">Create your first course or upload a book to get started.</p>
-                  <div className="flex justify-center space-x-4">
-                    <Button onClick={() => setCurrentView('create-course')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Course
-                    </Button>
-                    <Button variant="outline" onClick={() => setCurrentView('upload-book')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Upload Book
-                    </Button>
-                  </div>
+                  <GraduationCap className="h-16 w-16 mx-auto text-gray-600 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-300 mb-2">No courses found</h3>
+                  <p className="text-gray-500 mb-6">Create your first course to get started!</p>
+                  <Button onClick={() => setShowCourseCreator(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Course
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCourses.map((course) => (
+                    <div key={course.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
+                      <div className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <h3 className="font-semibold text-lg text-white group-hover:text-blue-400 transition-colors">
+                            {course.title}
+                          </h3>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditCourse(course)}
+                              className="text-gray-400 hover:text-white"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCourse(course.id)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {course.course_tags && course.course_tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {course.course_tags.map((courseTag) => (
+                              <span
+                                key={courseTag.tags.id}
+                                className="px-2 py-1 text-xs rounded-full text-white"
+                                style={{ backgroundColor: courseTag.tags.color }}
+                              >
+                                {courseTag.tags.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {course.description && (
+                          <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                            {course.description}
+                          </p>
+                        )}
+                        
+                        <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
+                          <span>{course.category || 'General'}</span>
+                          <span>{new Date(course.created_at).toLocaleDateString()}</span>
+                        </div>
+                        
+                        <Button 
+                          onClick={() => setSelectedCourse(course)}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Start Learning
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
-        )}
+          </TabsContent>
 
-        {currentView === 'calendar' && (
-          <CalendarView />
-        )}
+          <TabsContent value="library">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-white">Library</h2>
+              </div>
 
-        {(currentView === 'create-course' || currentView === 'edit-course') && (
-          <CourseCreator
-            editingCourse={editingCourse}
-            onSuccess={() => {
-              setCurrentView('library');
-              setEditingCourse(null);
-              fetchContent();
-              toast({
-                title: "Success",
-                description: editingCourse ? "Course updated successfully!" : "Course created successfully!"
-              });
-            }}
-            onCancel={() => {
-              setCurrentView('library');
-              setEditingCourse(null);
-            }}
-          />
-        )}
+              <LibraryFilters
+                courses={courses}
+                books={books}
+                onCoursesFiltered={setFilteredCourses}
+                onBooksFiltered={setFilteredBooks}
+                activeFilter="books"
+              />
 
-        {currentView === 'upload-book' && (
-          <BookUploader
-            onSuccess={() => {
-              setCurrentView('library');
-              fetchContent();
-              toast({
-                title: "Success",
-                description: "Book uploaded successfully!"
-              });
-            }}
-            onCancel={() => setCurrentView('library')}
-          />
-        )}
+              {filteredBooks.length === 0 ? (
+                <div className="text-center py-12">
+                  <BookOpen className="h-16 w-16 mx-auto text-gray-600 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-300 mb-2">No books found</h3>
+                  <p className="text-gray-500 mb-6">Upload your first book to start building your library!</p>
+                  <Button onClick={() => setShowBookUploader(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Upload Book
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredBooks.map((book) => (
+                    <div key={book.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
+                      {book.cover_image_url && (
+                        <div className="aspect-[3/4] overflow-hidden">
+                          <img 
+                            src={book.cover_image_url} 
+                            alt={book.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
+                          {book.title}
+                        </h3>
+                        {book.topic && (
+                          <p className="text-sm text-gray-400 mb-3">{book.topic}</p>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <Button 
+                            onClick={() => setSelectedBook(book)}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            Read
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteBook(book.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="calendar">
+            <CalendarView />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
