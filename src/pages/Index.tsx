@@ -286,6 +286,15 @@ const Index = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredCourses.map((course) => (
                     <div key={course.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
+                      {course.cover_image_url && (
+                        <div className="aspect-video overflow-hidden">
+                          <img 
+                            src={course.cover_image_url} 
+                            alt={course.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        </div>
+                      )}
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-4">
                           <h3 className="font-semibold text-lg text-white group-hover:text-blue-400 transition-colors">
@@ -377,30 +386,34 @@ const Index = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {filteredBooks.map((book) => (
                     <div key={book.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
-                      {book.cover_image_url && (
-                        <div className="aspect-[3/4] overflow-hidden">
+                      <div className="aspect-[3/4] overflow-hidden">
+                        {book.cover_image_url ? (
                           <img 
                             src={book.cover_image_url} 
                             alt={book.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
-                        </div>
-                      )}
-                      <div className="p-4">
-                        <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
+                        ) : (
+                          <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                            <BookOpen className="h-12 w-12 text-gray-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <h3 className="font-semibold text-white text-sm mb-1 line-clamp-2 group-hover:text-blue-400 transition-colors">
                           {book.title}
                         </h3>
                         {book.topic && (
-                          <p className="text-sm text-gray-400 mb-3">{book.topic}</p>
+                          <p className="text-xs text-gray-400 mb-2 line-clamp-1">{book.topic}</p>
                         )}
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col space-y-1">
                           <Button 
                             onClick={() => setSelectedBook(book)}
                             size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
                           >
                             Read
                           </Button>
@@ -408,7 +421,7 @@ const Index = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteBook(book.id)}
-                            className="text-red-400 hover:text-red-300"
+                            className="text-red-400 hover:text-red-300 text-xs h-6"
                           >
                             Delete
                           </Button>

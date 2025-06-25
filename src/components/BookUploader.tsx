@@ -1,249 +1,257 @@
 
 import { useState } from 'react';
-import { Upload, FileText, X } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const BookUploader = ({ onSuccess, onCancel }) => {
-  const [bookData, setBookData] = useState({
-    title: '',
-    topic: '',
-    summary: '',
-    notes: ''
-  });
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [title, setTitle] = useState('');
+  const [topic, setTopic] = useState('');
+  const [summary, setSummary] = useState('');
+  const [notes, setNotes] = useState('');
+  const [pdfFile, setPdfFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
+  const handlePdfUpload = (event) => {
+    const file = event.target.files[0];
     if (file && file.type === 'application/pdf') {
-      setSelectedFile(file);
-      // Auto-fill title from filename if empty
-      if (!bookData.title) {
-        const fileName = file.name.replace('.pdf', '').replace(/[-_]/g, ' ');
-        setBookData({...bookData, title: fileName});
-      }
+      setPdfFile(file);
     } else {
       toast({
-        title: "Error",
-        description: "Please select a PDF file",
+        title: "Invalid file type",
+        description: "Please select a PDF file.",
         variant: "destructive"
       });
     }
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') {
-      setSelectedFile(file);
-      if (!bookData.title) {
-        const fileName = file.name.replace('.pdf', '').replace(/[-_]/g, ' ');
-        setBookData({...bookData, title: fileName});
-      }
+  const handleCoverUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && (file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg')) {
+      setCoverFile(file);
     } else {
       toast({
-        title: "Error",
-        description: "Please select a PDF file",
+        title: "Invalid file type",
+        description: "Please select a JPG or PNG image file.",
         variant: "destructive"
       });
     }
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
+  const uploadFile = async (file, bucket, path) => {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(path, file);
+
+    if (error) throw error;
+    return data;
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
+  const getPublicUrl = (bucket, path) => {
+    const { data } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(path);
+    return data.publicUrl;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!bookData.title.trim()) {
+    
+    if (!title.trim()) {
       toast({
-        title: "Error",
-        description: "Book title is required",
+        title: "Missing information",
+        description: "Please enter a book title.",
         variant: "destructive"
       });
       return;
     }
 
-    setIsUploading(true);
+    setUploading(true);
 
     try {
       let pdfUrl = null;
+      let coverImageUrl = null;
 
-      // Upload PDF if selected
-      if (selectedFile) {
-        const fileExt = 'pdf';
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `books/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('course-files')
-          .upload(filePath, selectedFile);
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data } = supabase.storage
-          .from('course-files')
-          .getPublicUrl(filePath);
-
-        pdfUrl = data.publicUrl;
+      // Upload PDF if provided
+      if (pdfFile) {
+        const pdfFileName = `pdfs/${Date.now()}_${pdfFile.name}`;
+        await uploadFile(pdfFile, 'books', pdfFileName);
+        pdfUrl = getPublicUrl('books', pdfFileName);
       }
 
-      // Create book record
-      const { error: bookError } = await supabase
-        .from('books')
-        .insert([{
-          ...bookData,
-          pdf_url: pdfUrl
-        }]);
+      // Upload cover image if provided
+      if (coverFile) {
+        const coverFileName = `covers/${Date.now()}_${coverFile.name}`;
+        await uploadFile(coverFile, 'books', coverFileName);
+        coverImageUrl = getPublicUrl('books', coverFileName);
+      }
 
-      if (bookError) throw bookError;
+      // Save book to database
+      const { error } = await supabase
+        .from('books')
+        .insert({
+          title: title.trim(),
+          topic: topic.trim() || null,
+          summary: summary.trim() || null,
+          notes: notes.trim() || null,
+          pdf_url: pdfUrl,
+          cover_image_url: coverImageUrl
+        });
+
+      if (error) throw error;
 
       onSuccess();
     } catch (error) {
       console.error('Error uploading book:', error);
       toast({
-        title: "Error",
-        description: "Failed to upload book. Please try again.",
+        title: "Upload failed",
+        description: "There was an error uploading your book. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setIsUploading(false);
+      setUploading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">Upload Book</h2>
-        <p className="text-gray-400">Add a new book to your library</p>
-      </div>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <header className="border-b border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" onClick={onCancel}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <h1 className="text-xl font-bold">Upload Book</h1>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Book Details */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle className="text-white">Book Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="title" className="text-gray-300">Title *</Label>
-              <Input
-                id="title"
-                value={bookData.title}
-                onChange={(e) => setBookData({...bookData, title: e.target.value})}
-                placeholder="Enter book title"
-                className="bg-gray-700 border-gray-600 text-white mt-1"
-                required
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="topic" className="text-gray-300">Topic</Label>
-              <Input
-                id="topic"
-                value={bookData.topic}
-                onChange={(e) => setBookData({...bookData, topic: e.target.value})}
-                placeholder="e.g., Programming, Philosophy, Business"
-                className="bg-gray-700 border-gray-600 text-white mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="summary" className="text-gray-300">Summary</Label>
-              <textarea
-                id="summary"
-                value={bookData.summary}
-                onChange={(e) => setBookData({...bookData, summary: e.target.value})}
-                placeholder="Brief summary of the book"
-                className="w-full mt-1 p-3 bg-gray-700 border border-gray-600 rounded-md text-white resize-none"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="notes" className="text-gray-300">Notes</Label>
-              <textarea
-                id="notes"
-                value={bookData.notes}
-                onChange={(e) => setBookData({...bookData, notes: e.target.value})}
-                placeholder="Your notes about this book"
-                className="w-full mt-1 p-3 bg-gray-700 border border-gray-600 rounded-md text-white resize-none"
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* File Upload */}
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-white">PDF File</CardTitle>
+            <CardTitle className="text-white">Book Information</CardTitle>
           </CardHeader>
           <CardContent>
-            {!selectedFile ? (
-              <div
-                className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-gray-500 transition-colors"
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onClick={() => document.getElementById('file-input').click()}
-              >
-                <Upload className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-300 mb-2">Drop your PDF here or click to browse</p>
-                <p className="text-sm text-gray-500">PDF files only</p>
-                <input
-                  id="file-input"
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileSelect}
-                  className="hidden"
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="title" className="text-gray-300">Title *</Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter book title..."
+                  className="bg-gray-700 border-gray-600 text-white"
+                  required
                 />
               </div>
-            ) : (
-              <div className="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <FileText className="h-8 w-8 text-red-500" />
-                  <div>
-                    <p className="font-medium text-white">{selectedFile.name}</p>
-                    <p className="text-sm text-gray-400">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+
+              <div>
+                <Label htmlFor="topic" className="text-gray-300">Topic</Label>
+                <Input
+                  id="topic"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Enter book topic..."
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="summary" className="text-gray-300">Summary</Label>
+                <Textarea
+                  id="summary"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  placeholder="Enter book summary..."
+                  className="bg-gray-700 border-gray-600 text-white min-h-[100px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="notes" className="text-gray-300">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Enter your notes about this book..."
+                  className="bg-gray-700 border-gray-600 text-white min-h-[100px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cover" className="text-gray-300">Cover Image</Label>
+                <div className="mt-2">
+                  <Input
+                    id="cover"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png"
+                    onChange={handleCoverUpload}
+                    className="bg-gray-700 border-gray-600 text-white"
+                  />
+                  {coverFile && (
+                    <p className="text-sm text-green-400 mt-2 flex items-center">
+                      <Image className="h-4 w-4 mr-2" />
+                      {coverFile.name}
                     </p>
-                  </div>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="pdf" className="text-gray-300">PDF File</Label>
+                <div className="mt-2">
+                  <Input
+                    id="pdf"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handlePdfUpload}
+                    className="bg-gray-700 border-gray-600 text-white"
+                  />
+                  {pdfFile && (
+                    <p className="text-sm text-green-400 mt-2 flex items-center">
+                      <FileText className="h-4 w-4 mr-2" />
+                      {pdfFile.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex space-x-4 pt-6">
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={removeFile}
-                  className="text-red-400 hover:text-red-300"
+                  type="submit"
+                  disabled={uploading || !title.trim()}
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  <X className="h-4 w-4" />
+                  {uploading ? (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Book
+                    </>
+                  )}
+                </Button>
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  Cancel
                 </Button>
               </div>
-            )}
+            </form>
           </CardContent>
         </Card>
-
-        {/* Actions */}
-        <div className="flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isUploading}>
-            {isUploading ? 'Uploading...' : 'Upload Book'}
-          </Button>
-        </div>
-      </form>
+      </main>
     </div>
   );
 };
