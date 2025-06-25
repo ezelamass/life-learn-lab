@@ -438,7 +438,6 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
                       <Label className="text-gray-300">Upload Image</Label>
                       <ImageUploader
                         onImageUploaded={(url) => updateLesson(index, 'content', url)}
-                        className="bg-gray-600 border-gray-500"
                       />
                     </div>
                   )}
@@ -448,7 +447,6 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
                       <Label className="text-gray-300">Upload PDF</Label>
                       <PDFUploader
                         onPDFUploaded={(url) => updateLesson(index, 'content', url)}
-                        className="bg-gray-600 border-gray-500"
                       />
                     </div>
                   )}
@@ -458,7 +456,6 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
                       <Label className="text-gray-300">Upload Video</Label>
                       <VideoUploader
                         onVideoUploaded={(url) => updateLesson(index, 'content', url)}
-                        className="bg-gray-600 border-gray-500"
                       />
                     </div>
                   )}
