@@ -188,6 +188,10 @@ const CalendarView = () => {
     }
   };
 
+  const handleRecurringChange = (checked: boolean | "indeterminate") => {
+    setIsRecurring(checked === true);
+  };
+
   const toggleDaySelection = (dayKey) => {
     setRecurringOptions(prev => ({
       ...prev,
@@ -320,7 +324,7 @@ const CalendarView = () => {
                   <Checkbox
                     id="recurring"
                     checked={isRecurring}
-                    onCheckedChange={setIsRecurring}
+                    onCheckedChange={handleRecurringChange}
                   />
                   <Label htmlFor="recurring" className="text-gray-300">Make this recurring</Label>
                 </div>

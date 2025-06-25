@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -159,11 +158,11 @@ const Index = () => {
   };
 
   if (selectedCourse) {
-    return <CoursePlayer course={selectedCourse} onBack={() => setSelectedCourse(null)} />;
+    return <CoursePlayer course={selectedCourse} onBack={() => setSelectedCourse(null)} onUpdate={fetchCourses} />;
   }
 
   if (selectedBook) {
-    return <BookViewer book={selectedBook} onBack={() => setSelectedBook(null)} />;
+    return <BookViewer book={selectedBook} onBack={() => setSelectedBook(null)} onUpdate={fetchBooks} />;
   }
 
   if (showCourseCreator) {
@@ -260,11 +259,17 @@ const Index = () => {
               </div>
 
               <LibraryFilters
-                courses={courses}
-                books={books}
-                onCoursesFiltered={setFilteredCourses}
-                onBooksFiltered={setFilteredBooks}
-                activeFilter="courses"
+                selectedFilters={{ type: 'course', tags: [] }}
+                onFiltersChange={(filters) => {
+                  // Handle course filtering based on filters
+                  let filtered = courses;
+                  if (filters.tags && filters.tags.length > 0) {
+                    filtered = courses.filter(course => 
+                      course.course_tags?.some(ct => filters.tags.includes(ct.tags.id))
+                    );
+                  }
+                  setFilteredCourses(filtered);
+                }}
               />
 
               {filteredCourses.length === 0 ? (
@@ -352,11 +357,13 @@ const Index = () => {
               </div>
 
               <LibraryFilters
-                courses={courses}
-                books={books}
-                onCoursesFiltered={setFilteredCourses}
-                onBooksFiltered={setFilteredBooks}
-                activeFilter="books"
+                selectedFilters={{ type: 'book', tags: [] }}
+                onFiltersChange={(filters) => {
+                  // Handle book filtering based on filters
+                  let filtered = books;
+                  // Since books don't have tags yet, just filter by type
+                  setFilteredBooks(filtered);
+                }}
               />
 
               {filteredBooks.length === 0 ? (
