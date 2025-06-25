@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import CoursePlayer from '@/components/CoursePlayer';
 import BookUploader from '@/components/BookUploader';
 import BookViewer from '@/components/BookViewer';
 import CalendarView from '@/components/CalendarView';
+import LibraryFilters from '@/components/LibraryFilters';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,12 +21,22 @@ const Index = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedBook, setSelectedBook] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [filteredCourses, setFilteredCourses] = useState([]);
+  const [filteredBooks, setFilteredBooks] = useState([]);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCourses();
     fetchBooks();
   }, []);
+
+  useEffect(() => {
+    setFilteredCourses(courses);
+  }, [courses]);
+
+  useEffect(() => {
+    setFilteredBooks(books);
+  }, [books]);
 
   const fetchCourses = async () => {
     try {
@@ -248,7 +258,21 @@ const Index = () => {
                 <h2 className="text-3xl font-bold text-white">My Courses</h2>
               </div>
 
-              {courses.length === 0 ? (
+              <LibraryFilters
+                selectedFilters={{ type: 'course', tags: [] }}
+                onFiltersChange={(filters) => {
+                  // Handle course filtering based on filters
+                  let filtered = courses;
+                  if (filters.tags && filters.tags.length > 0) {
+                    filtered = courses.filter(course => 
+                      course.course_tags?.some(ct => filters.tags.includes(ct.tags.id))
+                    );
+                  }
+                  setFilteredCourses(filtered);
+                }}
+              />
+
+              {filteredCourses.length === 0 ? (
                 <div className="text-center py-12">
                   <GraduationCap className="h-16 w-16 mx-auto text-gray-600 mb-4" />
                   <h3 className="text-xl font-semibold text-gray-300 mb-2">No courses found</h3>
@@ -260,17 +284,8 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {courses.map((course) => (
+                  {filteredCourses.map((course) => (
                     <div key={course.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
-                      {course.cover_image_url && (
-                        <div className="aspect-video overflow-hidden">
-                          <img 
-                            src={course.cover_image_url} 
-                            alt={course.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                        </div>
-                      )}
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-4">
                           <h3 className="font-semibold text-lg text-white group-hover:text-blue-400 transition-colors">
@@ -341,7 +356,17 @@ const Index = () => {
                 <h2 className="text-3xl font-bold text-white">Library</h2>
               </div>
 
-              {books.length === 0 ? (
+              <LibraryFilters
+                selectedFilters={{ type: 'book', tags: [] }}
+                onFiltersChange={(filters) => {
+                  // Handle book filtering based on filters
+                  let filtered = books;
+                  // Since books don't have tags yet, just filter by type
+                  setFilteredBooks(filtered);
+                }}
+              />
+
+              {filteredBooks.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="h-16 w-16 mx-auto text-gray-600 mb-4" />
                   <h3 className="text-xl font-semibold text-gray-300 mb-2">No books found</h3>
@@ -352,34 +377,30 @@ const Index = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {books.map((book) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredBooks.map((book) => (
                     <div key={book.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
-                      <div className="aspect-[3/4] overflow-hidden">
-                        {book.cover_image_url ? (
+                      {book.cover_image_url && (
+                        <div className="aspect-[3/4] overflow-hidden">
                           <img 
                             src={book.cover_image_url} 
                             alt={book.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
-                        ) : (
-                          <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                            <BookOpen className="h-12 w-12 text-gray-500" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <h3 className="font-semibold text-white text-sm mb-1 line-clamp-2 group-hover:text-blue-400 transition-colors">
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
                           {book.title}
                         </h3>
                         {book.topic && (
-                          <p className="text-xs text-gray-400 mb-2 line-clamp-1">{book.topic}</p>
+                          <p className="text-sm text-gray-400 mb-3">{book.topic}</p>
                         )}
-                        <div className="flex flex-col space-y-1">
+                        <div className="flex justify-between items-center">
                           <Button 
                             onClick={() => setSelectedBook(book)}
                             size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
                           >
                             Read
                           </Button>
@@ -387,7 +408,7 @@ const Index = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteBook(book.id)}
-                            className="text-red-400 hover:text-red-300 text-xs h-6"
+                            className="text-red-400 hover:text-red-300"
                           >
                             Delete
                           </Button>
