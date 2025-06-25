@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Trash2, Upload, Image, FileText, Video, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -438,7 +437,7 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
                     <div>
                       <Label className="text-gray-300">Upload Image</Label>
                       <ImageUploader
-                        onImageUpload={(url) => updateLesson(index, 'content', url)}
+                        onImageUploaded={(url) => updateLesson(index, 'content', url)}
                         className="bg-gray-600 border-gray-500"
                       />
                     </div>
@@ -448,7 +447,7 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
                     <div>
                       <Label className="text-gray-300">Upload PDF</Label>
                       <PDFUploader
-                        onPDFUpload={(url) => updateLesson(index, 'content', url)}
+                        onPDFUploaded={(url) => updateLesson(index, 'content', url)}
                         className="bg-gray-600 border-gray-500"
                       />
                     </div>
@@ -458,7 +457,7 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
                     <div>
                       <Label className="text-gray-300">Upload Video</Label>
                       <VideoUploader
-                        onVideoUpload={(url) => updateLesson(index, 'content', url)}
+                        onVideoUploaded={(url) => updateLesson(index, 'content', url)}
                         className="bg-gray-600 border-gray-500"
                       />
                     </div>
