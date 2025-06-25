@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import CoursePlayer from '@/components/CoursePlayer';
 import BookUploader from '@/components/BookUploader';
 import BookViewer from '@/components/BookViewer';
 import CalendarView from '@/components/CalendarView';
-import LibraryFilters from '@/components/LibraryFilters';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,22 +21,12 @@ const Index = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedBook, setSelectedBook] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
-  const [filteredCourses, setFilteredCourses] = useState([]);
-  const [filteredBooks, setFilteredBooks] = useState([]);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCourses();
     fetchBooks();
   }, []);
-
-  useEffect(() => {
-    setFilteredCourses(courses);
-  }, [courses]);
-
-  useEffect(() => {
-    setFilteredBooks(books);
-  }, [books]);
 
   const fetchCourses = async () => {
     try {
@@ -258,21 +248,7 @@ const Index = () => {
                 <h2 className="text-3xl font-bold text-white">My Courses</h2>
               </div>
 
-              <LibraryFilters
-                selectedFilters={{ type: 'course', tags: [] }}
-                onFiltersChange={(filters) => {
-                  // Handle course filtering based on filters
-                  let filtered = courses;
-                  if (filters.tags && filters.tags.length > 0) {
-                    filtered = courses.filter(course => 
-                      course.course_tags?.some(ct => filters.tags.includes(ct.tags.id))
-                    );
-                  }
-                  setFilteredCourses(filtered);
-                }}
-              />
-
-              {filteredCourses.length === 0 ? (
+              {courses.length === 0 ? (
                 <div className="text-center py-12">
                   <GraduationCap className="h-16 w-16 mx-auto text-gray-600 mb-4" />
                   <h3 className="text-xl font-semibold text-gray-300 mb-2">No courses found</h3>
@@ -284,7 +260,7 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredCourses.map((course) => (
+                  {courses.map((course) => (
                     <div key={course.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
                       {course.cover_image_url && (
                         <div className="aspect-video overflow-hidden">
@@ -365,17 +341,7 @@ const Index = () => {
                 <h2 className="text-3xl font-bold text-white">Library</h2>
               </div>
 
-              <LibraryFilters
-                selectedFilters={{ type: 'book', tags: [] }}
-                onFiltersChange={(filters) => {
-                  // Handle book filtering based on filters
-                  let filtered = books;
-                  // Since books don't have tags yet, just filter by type
-                  setFilteredBooks(filtered);
-                }}
-              />
-
-              {filteredBooks.length === 0 ? (
+              {books.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="h-16 w-16 mx-auto text-gray-600 mb-4" />
                   <h3 className="text-xl font-semibold text-gray-300 mb-2">No books found</h3>
@@ -387,7 +353,7 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {filteredBooks.map((book) => (
+                  {books.map((book) => (
                     <div key={book.id} className="bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 overflow-hidden group">
                       <div className="aspect-[3/4] overflow-hidden">
                         {book.cover_image_url ? (
