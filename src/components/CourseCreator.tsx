@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Trash2, Upload, Image, FileText, Video, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -153,7 +154,14 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
         coverImageUrl = getPublicUrl('courses', coverFileName);
       }
 
-      let courseData = {
+      let courseData: {
+        title: string;
+        description: string | null;
+        topic: string | null;
+        category: string | null;
+        notes: string | null;
+        cover_image_url?: string;
+      } = {
         title: title.trim(),
         description: description.trim() || null,
         topic: topic.trim() || null,
@@ -362,7 +370,7 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
               <CardTitle className="text-white">Tags</CardTitle>
             </CardHeader>
             <CardContent>
-              <TagManager mode="select" selectedTags={selectedTags} onChange={setSelectedTags} />
+              <TagManager mode="select" selectedTags={selectedTags} onTagsChange={setSelectedTags} />
             </CardContent>
           </Card>
 
@@ -428,39 +436,30 @@ const CourseCreator = ({ onSuccess, onCancel, editingCourse = null }) => {
 
                   {lesson.type === 'image' && (
                     <div>
-                      <Label htmlFor={`lessonImage-${index}`} className="text-gray-300">Image URL</Label>
-                      <Input
-                        id={`lessonImage-${index}`}
-                        value={lesson.content}
-                        onChange={(e) => updateLesson(index, 'content', e.target.value)}
-                        placeholder="Enter image URL..."
-                        className="bg-gray-600 border-gray-500 text-white"
+                      <Label className="text-gray-300">Upload Image</Label>
+                      <ImageUploader
+                        onImageUpload={(url) => updateLesson(index, 'content', url)}
+                        className="bg-gray-600 border-gray-500"
                       />
                     </div>
                   )}
 
                   {lesson.type === 'pdf' && (
                     <div>
-                      <Label htmlFor={`lessonPdf-${index}`} className="text-gray-300">PDF URL</Label>
-                      <Input
-                        id={`lessonPdf-${index}`}
-                        value={lesson.content}
-                        onChange={(e) => updateLesson(index, 'content', e.target.value)}
-                        placeholder="Enter PDF URL..."
-                        className="bg-gray-600 border-gray-500 text-white"
+                      <Label className="text-gray-300">Upload PDF</Label>
+                      <PDFUploader
+                        onPDFUpload={(url) => updateLesson(index, 'content', url)}
+                        className="bg-gray-600 border-gray-500"
                       />
                     </div>
                   )}
 
                   {lesson.type === 'video' && (
                     <div>
-                      <Label htmlFor={`lessonVideo-${index}`} className="text-gray-300">Video URL</Label>
-                      <Input
-                        id={`lessonVideo-${index}`}
-                        value={lesson.content}
-                        onChange={(e) => updateLesson(index, 'content', e.target.value)}
-                        placeholder="Enter video URL..."
-                        className="bg-gray-600 border-gray-500 text-white"
+                      <Label className="text-gray-300">Upload Video</Label>
+                      <VideoUploader
+                        onVideoUpload={(url) => updateLesson(index, 'content', url)}
+                        className="bg-gray-600 border-gray-500"
                       />
                     </div>
                   )}
